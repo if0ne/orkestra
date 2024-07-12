@@ -1,5 +1,6 @@
 services:
   db-auth:
+    container_name: db-auth
     image: postgres:latest
     restart: always
     env_file:
@@ -8,7 +9,7 @@ services:
       - path: ./postgres-override.env
         required: false
     ports:
-      - 5432:5432
+      - 5433:5432
   
   auth-system:
     container_name: auth-system
