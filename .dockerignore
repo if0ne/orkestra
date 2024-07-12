@@ -1,0 +1,7 @@
+.vscode
+.idea
+
+/target
+
+./*/override.env
+./postgres-override.env

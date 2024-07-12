@@ -1,0 +1,39 @@
+services:
+  db-auth:
+    image: postgres:latest
+    restart: always
+    env_file:
+      - path: ./postgres-default.env
+        required: true
+      - path: ./postgres-override.env
+        required: false
+    ports:
+      - 5432:5432
+  
+  auth-system:
+    container_name: auth-system
+    restart: always
+    build: ./orkestra-auth-system/.
+    env_file:
+      - path: ./orkestra-auth-system/default.env
+        required: true
+      - path: ./orkestra-auth-system/override.env
+        required: false
+    ports:
+      - 8000:8000
+    depends_on:
+      db-auth:
+        condition: service_started
+  
+  server-manager:
+    container_name: server-manager
+    restart: always
+    build: ./orkestra-server-manager/.
+    env_file:
+      - path: ./orkestra-server-manager/default.env
+        required: true
+      - path: ./orkestra-server-manager/override.env
+        required: false
+    ports:
+      - 8001:8001
+    
