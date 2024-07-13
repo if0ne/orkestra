@@ -36,5 +36,5 @@ services:
       - path: ./orkestra-server-manager/override.env
         required: false
     ports:
-      - 8001:8001
+      - ${SERVER_MANAGE_PORT}:${SERVER_MANAGE_PORT}
     
