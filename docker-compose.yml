@@ -21,7 +21,7 @@ services:
       - path: ./orkestra-auth-system/override.env
         required: false
     ports:
-      - 8000:8000
+      - ${AUTH_PORT}:${AUTH_PORT}
     depends_on:
       db-auth:
         condition: service_started
