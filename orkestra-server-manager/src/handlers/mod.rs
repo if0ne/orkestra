@@ -3,9 +3,13 @@ use std::{net::SocketAddrV4, sync::Arc};
 use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
+use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::{models::{Session, SessionPresent}, Context};
+use crate::{
+    models::{Session, SessionPresent},
+    Context,
+};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CreateSessionRequest {
@@ -53,6 +57,12 @@ pub async fn create_session(
         free_port.local_addr().unwrap().port()
     };
 
+    info!(
+        target: "Create Session",
+        event = "Found free port",
+        port = free_port
+    );
+
     let session = Session {
         id: Uuid::new_v4(),
         addr: SocketAddrV4::new(context.host, free_port),
@@ -60,6 +70,11 @@ pub async fn create_session(
     };
 
     let addr = session.addr.to_string();
+
+    info!(
+        target: "Create Session",
+        event = "Starting game server",
+    );
 
     tokio::process::Command::new(&context.engine_path)
         .env("SERVER_ID", session.id.to_string())
@@ -75,12 +90,22 @@ pub async fn create_session(
         .sessions
         .insert(session.id, session);
 
+    info!(
+        target: "Create Session",
+        event = "Game server was saved",
+    );
+
     Ok(Json(CreateSessionResponse { connection: addr }))
 }
 
 pub async fn filter_sessions(
     State(context): State<Arc<Context>>,
 ) -> Result<Json<FilterSessionsResponse>, StatusCode> {
+    info!(
+        target: "Filter Session",
+        event = "Fetching all game server",
+    );
+
     let sessions = context
         .session_container
         .sessions
@@ -95,7 +120,19 @@ pub async fn join_session(
     State(context): State<Arc<Context>>,
     Json(request): Json<JoinSessionRequest>,
 ) -> Result<Json<JoinSessionResponse>, StatusCode> {
+    info!(
+        target: "Join Session",
+        event = "Request to join session",
+        server_id = ?request.server_id
+    );
+
     let Some(server) = context.session_container.sessions.get(&request.server_id) else {
+        error!(
+            target: "Join Session",
+            event = "Not found session",
+            server_id = ?request.server_id
+        );
+
         return Err(StatusCode::BAD_REQUEST);
     };
 
@@ -108,11 +145,23 @@ pub async fn remove_session(
     State(context): State<Arc<Context>>,
     Json(request): Json<RemoveSessionRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    info!(
+        target: "Remove Session",
+        event = "Request to remove session",
+        server_id = ?request.server_id
+    );
+
     let Some(_) = context
         .session_container
         .sessions
         .remove(&request.server_id)
     else {
+        error!(
+            target: "Remove Session",
+            event = "Not found session",
+            server_id = ?request.server_id
+        );
+
         return Err(StatusCode::BAD_REQUEST);
     };
 
