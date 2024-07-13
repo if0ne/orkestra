@@ -61,7 +61,8 @@ pub async fn create_session(
 
     let addr = session.addr.to_string();
 
-    /tokio::process::Command::new(&context.engine_path)
+    tokio::process::Command::new(&context.engine_path)
+        .env("SERVER_ID", session.id.to_string())
         .arg(&context.project_path)
         .arg("-server")
         .arg("-log")
