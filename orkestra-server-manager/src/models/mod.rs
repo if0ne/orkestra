@@ -15,3 +15,18 @@ pub struct Session {
     pub addr: SocketAddrV4,
     pub title: String,
 }
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SessionPresent {
+    pub id: Uuid,
+    pub title: String,
+}
+
+impl From<Session> for SessionPresent {
+    fn from(value: Session) -> Self {
+        SessionPresent {
+            id: value.id,
+            title: value.title,
+        }
+    }
+}

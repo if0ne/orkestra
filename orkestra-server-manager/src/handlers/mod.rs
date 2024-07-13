@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use uuid::Uuid;
 
-use crate::{models::Session, Context};
+use crate::{models::{Session, SessionPresent}, Context};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CreateSessionRequest {
@@ -36,7 +36,7 @@ pub struct JoinSessionResponse {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct FilterSessionsResponse {
-    pub servers: Vec<Session>,
+    pub servers: Vec<SessionPresent>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -85,8 +85,8 @@ pub async fn filter_sessions(
         .session_container
         .sessions
         .iter()
-        .map(|session| session.clone())
-        .collect();
+        .map(|session| session.clone().into())
+        .collect::<Vec<SessionPresent>>();
 
     Ok(Json(FilterSessionsResponse { servers: sessions }))
 }
