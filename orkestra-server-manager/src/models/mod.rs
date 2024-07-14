@@ -1,8 +1,10 @@
-use std::net::SocketAddrV4;
+use std::{net::SocketAddrV4, sync::atomic::AtomicU32};
 
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+pub static GLOBAL_CODE: AtomicU32 = AtomicU32::new(0);
 
 #[derive(Debug, Default)]
 pub struct SessionsInMemory {
@@ -14,6 +16,7 @@ pub struct Session {
     pub id: Uuid,
     pub addr: SocketAddrV4,
     pub title: String,
+    pub code: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

@@ -1,13 +1,17 @@
 use std::{net::SocketAddrV4, sync::Arc};
 
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    Json,
+};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::{
-    models::{Session, SessionPresent},
+    models::{Session, SessionPresent, GLOBAL_CODE},
     Context,
 };
 
@@ -63,10 +67,14 @@ pub async fn create_session(
         port = free_port
     );
 
+    let code = GLOBAL_CODE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let code = format!("{:06}", code);
+
     let session = Session {
         id: Uuid::new_v4(),
         addr: SocketAddrV4::new(context.host, free_port),
         title: request.config.title,
+        code: code.clone(),
     };
 
     let addr = session.addr.to_string();
@@ -77,11 +85,14 @@ pub async fn create_session(
     );
 
     tokio::process::Command::new(&context.engine_path)
-        .env("SERVER_ID", session.id.to_string())
         .arg(&context.project_path)
         .arg("-server")
         .arg("-log")
         .arg(format!("-port={free_port}"))
+        .arg("serverid")
+        .arg(session.id.to_string())
+        .arg("servercode")
+        .arg(code)
         .spawn()
         .unwrap();
 
@@ -100,18 +111,29 @@ pub async fn create_session(
 
 pub async fn filter_sessions(
     State(context): State<Arc<Context>>,
+    Query(code): Query<Option<String>>,
 ) -> Result<Json<FilterSessionsResponse>, StatusCode> {
     info!(
         target: "Filter Session",
         event = "Fetching all game server",
     );
 
-    let sessions = context
-        .session_container
-        .sessions
-        .iter()
-        .map(|session| session.clone().into())
-        .collect::<Vec<SessionPresent>>();
+    let sessions: Vec<SessionPresent> = if let Some(code) = code {
+        context
+            .session_container
+            .sessions
+            .iter()
+            .find(|session| session.code.eq(&code))
+            .map(|session| vec![session.clone().into()])
+            .unwrap_or_default()
+    } else {
+        context
+            .session_container
+            .sessions
+            .iter()
+            .map(|session| session.clone().into())
+            .collect()
+    };
 
     Ok(Json(FilterSessionsResponse { servers: sessions }))
 }
