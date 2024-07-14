@@ -52,6 +52,11 @@ pub struct RemoveSessionRequest {
     pub server_id: Uuid,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct FilterRequest {
+    pub code: Option<String>,
+}
+
 pub async fn create_session(
     State(context): State<Arc<Context>>,
     Json(request): Json<CreateSessionRequest>,
@@ -111,14 +116,14 @@ pub async fn create_session(
 
 pub async fn filter_sessions(
     State(context): State<Arc<Context>>,
-    Query(code): Query<Option<String>>,
+    Query(request): Query<FilterRequest>,
 ) -> Result<Json<FilterSessionsResponse>, StatusCode> {
     info!(
         target: "Filter Session",
         event = "Fetching all game server",
     );
 
-    let sessions: Vec<SessionPresent> = if let Some(code) = code {
+    let sessions: Vec<SessionPresent> = if let Some(code) = request.code {
         context
             .session_container
             .sessions
