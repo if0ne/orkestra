@@ -1,8 +1,6 @@
 # Make chef image
-FROM rust:1.79-alpine3.20 AS chef
+FROM rust:1.79 as chef
 WORKDIR /app
-RUN apk upgrade
-RUN apk add musl-dev
 RUN cargo install --version 0.1.67 cargo-chef
 
 # Cache deps
@@ -18,7 +16,8 @@ COPY . .
 RUN cargo build --release
 
 # Run app
-FROM alpine:3.20 AS runner
+FROM debian:latest AS runner
 WORKDIR /app
 COPY --from=builder /app/target/release/orkestra-server-manager /app
+COPY Server /app/Server
 ENTRYPOINT ["./orkestra-server-manager"]
