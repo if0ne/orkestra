@@ -38,8 +38,8 @@ async fn main() -> Result<()> {
     let context = Arc::new(Context {
         session_container: Default::default(),
         host: config.host.parse().unwrap(),
-        engine_path: config.engine_path.clone(),
-        project_path: config.project_path.clone(),
+        port: config.port,
+        server_path: config.server_path.clone(),
     });
 
     let app = get_router(context);
@@ -61,15 +61,14 @@ struct AppConfig {
     host: String,
     port: u16,
 
-    engine_path: String,
-    project_path: String,
+    server_path: String,
 }
 
 #[derive(Debug)]
 pub struct Context {
     pub session_container: SessionsInMemory,
     pub host: Ipv4Addr,
+    pub port: u16,
 
-    pub engine_path: String,
-    pub project_path: String,
+    pub server_path: String,
 }

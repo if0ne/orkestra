@@ -89,15 +89,16 @@ pub async fn create_session(
         event = "Starting game server",
     );
 
-    tokio::process::Command::new(&context.engine_path)
-        .arg(&context.project_path)
-        .arg("-server")
+    tokio::process::Command::new("bash")
+        .arg(&context.server_path)
         .arg("-log")
-        .arg(format!("-port={free_port}"))
-        .arg("serverid")
+        .arg(format!("-Port={free_port}"))
+        .arg("-serverid")
         .arg(session.id.to_string())
-        .arg("servercode")
+        .arg("-servercode")
         .arg(code)
+        .arg("-serveraddr")
+        .arg(format!("{}:{}", context.host.to_string(), context.port))
         .spawn()
         .unwrap();
 
