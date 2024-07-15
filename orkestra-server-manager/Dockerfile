@@ -18,6 +18,10 @@ RUN cargo build --release
 # Run app
 FROM debian:latest AS runner
 WORKDIR /app
+
+RUN apt-get update
+RUN apt-get install procps
+
 COPY --from=builder /app/target/release/orkestra-server-manager /app
 COPY Server /app/Server
 ENTRYPOINT ["./orkestra-server-manager"]
