@@ -38,4 +38,5 @@ services:
         required: false
     ports:
       - ${SERVER_MANAGE_PORT}:${SERVER_MANAGE_PORT}
+      - 32768-65535:32768-65535/upd
     
