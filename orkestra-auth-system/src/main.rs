@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{io, sync::Arc};
 
 use anyhow::Result;
 use axum::{routing::post, Router};
@@ -10,7 +10,7 @@ use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use tokio::sync::Mutex;
 use tracing::{info, Level};
 use tracing_appender::rolling;
-use tracing_subscriber::{fmt::writer::MakeWriterExt, FmtSubscriber};
+use tracing_subscriber::{fmt::{self, writer::MakeWriterExt}, layer::SubscriberExt, FmtSubscriber};
 
 mod handlers;
 
@@ -48,13 +48,27 @@ fn get_router(context: Arc<Context>) -> Router {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let info_file = rolling::daily("./logs-as", "info").with_max_level(tracing::Level::INFO);
+    let (file_log, guard) = {
+        let (file_log, guard) = tracing_appender::non_blocking(
+            rolling::daily("./logs-as", "info")
+        );
 
-    let subscriber = FmtSubscriber::builder()
-        .with_writer(info_file)
-        .with_max_level(Level::TRACE)
-        .finish();
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+        let file_log = fmt::Layer::new()
+            .with_ansi(false)
+            .with_writer(file_log.with_max_level(tracing::Level::INFO));
+
+        (file_log, guard)
+    };
+    
+    let console_log = fmt::Layer::new()
+        .with_ansi(true)
+        .with_writer(io::stdout);
+
+    let subscriber = tracing_subscriber::registry()
+        .with(file_log)
+        .with(console_log);
+    
+    let _  = tracing::subscriber::set_global_default(subscriber);
 
     let config = envy::from_env::<AppConfig>().unwrap();
 

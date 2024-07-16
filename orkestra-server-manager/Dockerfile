@@ -21,4 +21,5 @@ WORKDIR /app
 COPY --from=builder /app/target/release/orkestra-server-manager /app
 COPY Server /app/Server
 EXPOSE 32768-65535/udp
+RUN chmod -R 777 ./
 ENTRYPOINT ["./orkestra-server-manager"]
