@@ -8,8 +8,9 @@ services:
         required: true
       - path: ./postgres-override.env
         required: false
-    ports:
-      - 5433:5432
+    network_mode: "host"
+    # ports:
+    # - 5433:5432
   
   auth-system:
     container_name: auth-system
@@ -20,8 +21,9 @@ services:
         required: true
       - path: ./orkestra-auth-system/override.env
         required: false
-    ports:
-      - ${AUTH_PORT}:${AUTH_PORT}
+    network_mode: "host"
+    # ports:
+    #  - ${AUTH_PORT}:${AUTH_PORT}
     depends_on:
       db-auth:
         condition: service_started
@@ -36,7 +38,7 @@ services:
         required: true
       - path: ./orkestra-server-manager/override.env
         required: false
-    ports:
-      - ${SERVER_MANAGE_PORT}:${SERVER_MANAGE_PORT}
-      - 32768-65535:32768-65535/udp
+    network_mode: "host"
+    # ports:
+    #  - ${SERVER_MANAGE_PORT}:${SERVER_MANAGE_PORT}
     
