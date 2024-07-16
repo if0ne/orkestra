@@ -9,7 +9,8 @@ use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use tokio::sync::Mutex;
 use tracing::{info, Level};
-use tracing_subscriber::FmtSubscriber;
+use tracing_appender::rolling;
+use tracing_subscriber::{fmt::writer::MakeWriterExt, FmtSubscriber};
 
 mod handlers;
 
@@ -47,10 +48,10 @@ fn get_router(context: Arc<Context>) -> Router {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (non_blocking, _guard) = tracing_appender::non_blocking(std::io::stdout());
+    let info_file = rolling::daily("./logs-as", "info").with_max_level(tracing::Level::INFO);
 
     let subscriber = FmtSubscriber::builder()
-        .with_writer(non_blocking)
+        .with_writer(info_file)
         .with_max_level(Level::TRACE)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
@@ -59,11 +60,9 @@ async fn main() -> Result<()> {
 
     let database_connection = create_database_connection(&config).await?;
 
-    let mut os_rng = OsRng::default();
-
     let context = Arc::new(Context {
         database_connection,
-        random: Mutex::new(ChaCha8Rng::seed_from_u64(os_rng.next_u64())),
+        random: Mutex::new(ChaCha8Rng::seed_from_u64(OsRng.next_u64())),
     });
 
     info!(

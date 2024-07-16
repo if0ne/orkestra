@@ -52,8 +52,7 @@ pub async fn signup(
 
     const INSERT_QUERY: &str = "INSERT INTO users (username, password) VALUES ($1, $2);";
 
-    let mut rng = OsRng::default();
-    let salt = SaltString::generate(&mut rng);
+    let salt = SaltString::generate(&mut OsRng);
 
     let Ok(password_hash) = Pbkdf2.hash_password(request.password.as_bytes(), &salt) else {
         error!(

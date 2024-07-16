@@ -1,4 +1,4 @@
-use std::{net::SocketAddrV4, sync::Arc};
+use std::{net::SocketAddrV4, process::Stdio, sync::Arc};
 
 use axum::{
     extract::{Query, State},
@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -48,12 +48,7 @@ pub struct FilterSessionsResponse {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct RemoveSessionRequest {
-    pub server_id: Uuid,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct FilterRequest {
+pub struct FilterParams {
     pub code: Option<String>,
 }
 
@@ -89,18 +84,54 @@ pub async fn create_session(
         event = "Starting game server",
     );
 
-    tokio::process::Command::new("bash")
-        .arg(&context.server_path)
-        .arg("-log")
-        .arg(format!("-Port={free_port}"))
-        .arg("-serverid")
-        .arg(session.id.to_string())
-        .arg("-servercode")
-        .arg(code)
-        .arg("-serveraddr")
-        .arg(format!("{}:{}", context.host.to_string(), context.port))
-        .spawn()
-        .unwrap();
+    let logs = if let Ok(file) = tokio::fs::File::create(format!(
+        "logs-ue/logs-{}-{}-{}.log",
+        session.id,
+        session.title,
+        session.addr.port()
+    ))
+    .await
+    {
+        Stdio::from(file.into_std().await)
+    } else {
+        Stdio::null()
+    };
+
+    let context_clone = context.clone();
+    tokio::spawn(async move {
+        let result = tokio::process::Command::new("bash")
+            .arg(&context_clone.server_path)
+            .arg("-log")
+            .arg(format!("-Port={free_port}"))
+            .arg("-serverid")
+            .arg(session.id.to_string())
+            .arg("-servercode")
+            .arg(code)
+            .arg("-serveraddr")
+            .arg(format!("{}:{}", context_clone.host, context_clone.port))
+            .stdin(Stdio::null())
+            .stdout(logs)
+            .output()
+            .await;
+
+        match result {
+            Ok(_) => {
+                context_clone.session_container.sessions.remove(&session.id);
+
+                info!(
+                    target: "Clear Session",
+                    event = "Game server was finished and removed",
+                );
+            }
+            Err(err) => {
+                warn!(
+                    target: "Create Session",
+                    event = "Game server end with error",
+                    error = ?err
+                );
+            }
+        }
+    });
 
     context
         .session_container
@@ -117,7 +148,7 @@ pub async fn create_session(
 
 pub async fn filter_sessions(
     State(context): State<Arc<Context>>,
-    Query(request): Query<FilterRequest>,
+    Query(request): Query<FilterParams>,
 ) -> Result<Json<FilterSessionsResponse>, StatusCode> {
     info!(
         target: "Filter Session",
@@ -167,31 +198,4 @@ pub async fn join_session(
     Ok(Json(JoinSessionResponse {
         connection: server.addr.to_string(),
     }))
-}
-
-pub async fn remove_session(
-    State(context): State<Arc<Context>>,
-    Json(request): Json<RemoveSessionRequest>,
-) -> Result<StatusCode, StatusCode> {
-    info!(
-        target: "Remove Session",
-        event = "Request to remove session",
-        server_id = ?request.server_id
-    );
-
-    let Some(_) = context
-        .session_container
-        .sessions
-        .remove(&request.server_id)
-    else {
-        error!(
-            target: "Remove Session",
-            event = "Not found session",
-            server_id = ?request.server_id
-        );
-
-        return Err(StatusCode::BAD_REQUEST);
-    };
-
-    Ok(StatusCode::OK)
 }
