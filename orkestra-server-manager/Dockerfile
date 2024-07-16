@@ -20,5 +20,6 @@ FROM debian:latest AS runner
 WORKDIR /app
 COPY --from=builder /app/target/release/orkestra-server-manager /app
 COPY Server /app/Server
-EXPOSE 32768-65535
+EXPOSE 32768-65535/tcp
+EXPOSE 32768-65535/udp
 ENTRYPOINT ["./orkestra-server-manager"]
