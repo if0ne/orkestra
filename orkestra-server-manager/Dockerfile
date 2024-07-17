@@ -24,7 +24,10 @@ COPY Server /app/Server
 EXPOSE 32768-65535/udp
 
 RUN chmod -R 777 ./
+
+USER root
 RUN apt update
 RUN apt install vim -y
+USER 1000
 
 ENTRYPOINT ["./orkestra-server-manager"]
