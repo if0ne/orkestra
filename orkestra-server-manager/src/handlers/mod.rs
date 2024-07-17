@@ -104,7 +104,7 @@ pub async fn create_session(
     let context_clone = context.clone();
     tokio::spawn(async move {
         let result = tokio::process::Command::new("bash")
-            .arg(&context_clone.server_path)
+            .arg(format!("./{}/{}.sh", context_clone.project_name, context_clone.project_name))
             .arg("-log")
             .arg(format!("-Port={free_port}"))
             .arg("-serverid")
