@@ -56,9 +56,13 @@ pub async fn create_session(
     State(context): State<Arc<Context>>,
     Json(request): Json<CreateSessionRequest>,
 ) -> Result<Json<CreateSessionResponse>, StatusCode> {
-    let free_port = {
+    let free_port = loop {
         let free_port = TcpListener::bind("0.0.0.0:0").await.unwrap();
-        free_port.local_addr().unwrap().port()
+        let free_port = free_port.local_addr().unwrap().port();
+
+        if context.used_ports.insert(free_port) {
+            break free_port;
+        }
     };
 
     info!(
@@ -116,8 +120,6 @@ pub async fn create_session(
 
         match result {
             Ok(_) => {
-                context_clone.session_container.sessions.remove(&session.id);
-
                 info!(
                     target: "Clear Session",
                     event = "Game server was finished and removed",
@@ -131,6 +133,9 @@ pub async fn create_session(
                 );
             }
         }
+
+        context_clone.session_container.sessions.remove(&session.id);
+        context_clone.used_ports.remove(&free_port);
     });
 
     context
