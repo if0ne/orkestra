@@ -1,6 +1,6 @@
 use std::{io, net::Ipv4Addr, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use axum::{
     routing::{get, post},
     Router,
@@ -25,6 +25,21 @@ fn get_router(context: Arc<Context>) -> Router {
         .route("/api/v1/filter", get(filter_sessions))
         .route("/api/v1/join", post(join_session))
         .with_state(context)
+}
+
+fn clone_executable(context: Arc<Context>) -> Result<()> {
+    let _ = std::process::Command::new("git")
+        .arg("clone")
+        .arg(&context.repo_path)
+        .output()?;
+
+    let _ = std::process::Command::new("git")
+        .arg("lfs")
+        .arg("pull")
+        .current_dir(&context.project_name)
+        .output()?;
+
+    Ok(())
 }
 
 #[tokio::main]
@@ -54,13 +69,16 @@ async fn main() -> Result<()> {
         session_container: Default::default(),
         host: config.host.parse()?,
         port: config.port,
-        server_path: config.server_path.clone(),
+        project_name: config.project_name.clone(),
+        repo_path: config.repo_path.clone(),
         used_ports: DashSet::with_capacity(16),
     });
 
-    let app = get_router(context);
+    let app = get_router(Arc::clone(&context));
     let addr = format!("0.0.0.0:{}", config.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
+
+    clone_executable(Arc::clone(&context))?;
 
     info!(
         target: "Server",
@@ -77,7 +95,8 @@ struct AppConfig {
     host: String,
     port: u16,
 
-    server_path: String,
+    project_name: String,
+    repo_path: String,
 }
 
 #[derive(Debug)]
@@ -87,5 +106,6 @@ pub struct Context {
     pub port: u16,
     pub used_ports: DashSet<u16>,
 
-    pub server_path: String,
+    pub project_name: String,
+    pub repo_path: String,
 }

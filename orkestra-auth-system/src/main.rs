@@ -8,12 +8,11 @@ use rand_chacha::ChaCha8Rng;
 use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use tokio::sync::Mutex;
-use tracing::{info, Level};
+use tracing::info;
 use tracing_appender::rolling;
 use tracing_subscriber::{
     fmt::{self, writer::MakeWriterExt},
     layer::SubscriberExt,
-    FmtSubscriber,
 };
 
 mod handlers;
