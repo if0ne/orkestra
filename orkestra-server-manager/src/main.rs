@@ -28,6 +28,8 @@ fn get_router(context: Arc<Context>) -> Router {
 }
 
 fn clone_executable(context: Arc<Context>) -> Result<()> {
+    let _ = std::fs::remove_dir_all(&context.project_name);
+
     let _ = std::process::Command::new("git")
         .arg("clone")
         .arg(&context.repo_path)
@@ -39,6 +41,11 @@ fn clone_executable(context: Arc<Context>) -> Result<()> {
         .current_dir(&context.project_name)
         .output()?;
 
+    let _ = std::process::Command::new("git")
+        .arg("lfs")
+        .arg("fetch")
+        .current_dir(&context.project_name)
+        .output()?;
 
     let _ = std::process::Command::new("git")
         .arg("lfs")
@@ -51,7 +58,7 @@ fn clone_executable(context: Arc<Context>) -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (file_log, guard) = {
+    let (file_log, _guard) = {
         let (file_log, guard) = tracing_appender::non_blocking(rolling::daily("./logs-sm", "info"));
 
         let file_log = fmt::Layer::new()

@@ -88,19 +88,6 @@ pub async fn create_session(
         event = "Starting game server",
     );
 
-    let logs = if let Ok(file) = tokio::fs::File::create(format!(
-        "logs-ue/logs-{}-{}-{}.log",
-        session.id,
-        session.title,
-        session.addr.port()
-    ))
-    .await
-    {
-        Stdio::from(file.into_std().await)
-    } else {
-        Stdio::null()
-    };
-
     let context_clone = context.clone();
     tokio::spawn(async move {
         let result = tokio::process::Command::new("bash")
@@ -114,15 +101,22 @@ pub async fn create_session(
             .arg("-serveraddr")
             .arg(format!("{}:{}", context_clone.host, context_clone.port))
             .stdin(Stdio::null())
-            .stdout(logs)
+            .stdout(Stdio::null())
             .output()
             .await;
 
         match result {
-            Ok(_) => {
+            Ok(output) => {
+                // let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                let status = output.status.to_string();
+
                 info!(
                     target: "Clear Session",
                     event = "Game server was finished and removed",
+                    // stdout = stdout,
+                    stderr = stderr,
+                    status = status
                 );
             }
             Err(err) => {
