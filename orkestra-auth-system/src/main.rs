@@ -51,7 +51,7 @@ fn get_router(context: Arc<Context>) -> Router {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let (file_log, guard) = {
+    let (file_log, _guard) = {
         let (file_log, guard) = tracing_appender::non_blocking(rolling::daily("./logs-as", "info"));
 
         let file_log = fmt::Layer::new()
