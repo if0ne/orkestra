@@ -2,8 +2,7 @@
 .idea
 
 /target
-/orkestra-server-manager/Server/FunkyPirates/Saved/Logs
-/orkestra-server-manager/Server/FunkyPirates/Saved/Config/CrashReportClient
+
 /logs-sm
 /logs-as
 /logs-ue

@@ -32,7 +32,6 @@ services:
     container_name: server-manager
     restart: always
     build: ./orkestra-server-manager/.
-    user: 1000:1000
     env_file:
       - path: ./orkestra-server-manager/default.env
         required: true

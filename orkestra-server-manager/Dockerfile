@@ -20,13 +20,15 @@ FROM debian:latest AS runner
 WORKDIR /app
 COPY --from=builder /app/target/release/orkestra-server-manager /app
 
-EXPOSE 32768-65535/udp
+# EXPOSE 32768-65535/udp
 
 RUN chmod -R 777 ./
 
 USER root
 RUN apt update
 RUN apt install vim -y
+RUN apt install git -y
+RUN apt install git-lfs -y
 USER 1000
 
 ENTRYPOINT ["./orkestra-server-manager"]
