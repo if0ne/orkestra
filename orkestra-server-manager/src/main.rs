@@ -1,4 +1,4 @@
-use std::{io, net::Ipv4Addr, sync::Arc};
+use std::{future::IntoFuture, io, net::Ipv4Addr, sync::Arc};
 
 use anyhow::{Ok, Result};
 use axum::{
@@ -93,7 +93,11 @@ async fn main() -> Result<()> {
         event = "Start listening",
         addr = addr
     );
-    axum::serve(listener, app).await?;
+
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {},
+        _ = axum::serve(listener, app).into_future() => {},
+    }
 
     Ok(())
 }

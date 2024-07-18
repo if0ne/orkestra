@@ -1,4 +1,4 @@
-use std::{io, sync::Arc};
+use std::{future::IntoFuture, io, sync::Arc};
 
 use anyhow::Result;
 use axum::{routing::post, Router};
@@ -99,7 +99,11 @@ async fn main() -> Result<()> {
         event = "Start listening",
         addr = addr
     );
-    axum::serve(listener, app).await?;
+    
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {},
+        _ = axum::serve(listener, app).into_future() => {},
+    }
 
     Ok(())
 }
