@@ -35,6 +35,13 @@ fn clone_executable(context: Arc<Context>) -> Result<()> {
 
     let _ = std::process::Command::new("git")
         .arg("lfs")
+        .arg("install")
+        .current_dir(&context.project_name)
+        .output()?;
+
+
+    let _ = std::process::Command::new("git")
+        .arg("lfs")
         .arg("pull")
         .current_dir(&context.project_name)
         .output()?;
