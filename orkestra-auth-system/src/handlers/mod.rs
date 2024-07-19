@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use pbkdf2::{
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Pbkdf2,
@@ -8,7 +8,7 @@ use pbkdf2::{
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use sqlx::types::Uuid;
-use tracing::{error, info};
+use tracing::{error, info, info_span, Instrument};
 
 use crate::Context;
 
@@ -33,21 +33,28 @@ fn valid_username(username: &str) -> bool {
 pub async fn signup(
     State(context): State<Arc<Context>>,
     Json(request): Json<SingupData>,
-) -> Result<StatusCode, StatusCode> {
+) -> impl IntoResponse {
+    let span = info_span!("signup");
+    let _guard = span.enter();
+
     info!(
-        target: "Signup",
+        event = "Handle request",
         event = "Request to signup user",
         username = request.username,
     );
 
     if !valid_username(&request.username) {
         error!(
-            target: "Signup",
-            event = "Validation failed",
+            event = "Username validation failed",
             username = request.username,
         );
 
-        return Err(StatusCode::BAD_REQUEST);
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Unacceptable username"
+            })),
+        );
     }
 
     const INSERT_QUERY: &str = "INSERT INTO users (username, password) VALUES ($1, $2);";
@@ -55,13 +62,14 @@ pub async fn signup(
     let salt = SaltString::generate(&mut OsRng);
 
     let Ok(password_hash) = Pbkdf2.hash_password(request.password.as_bytes(), &salt) else {
-        error!(
-            target: "Signup",
-            event = "Bad password",
-            password = request.password,
-        );
+        error!(event = "Bad password", password = request.password,);
 
-        return Err(StatusCode::BAD_REQUEST);
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Unacceptable password"
+            })),
+        );
     };
 
     if sqlx::query(INSERT_QUERY)
@@ -72,48 +80,49 @@ pub async fn signup(
         .is_err()
     {
         error!(
-            target: "Signup",
             event = "Failed to save user into database",
             username = request.username,
         );
 
-        return Err(StatusCode::BAD_REQUEST);
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "User already exists"
+            })),
+        );
     }
 
-    info!(
-        target: "Signup",
-        event = "User saved",
-        username = request.username,
-    );
+    info!(event = "User saved", username = request.username,);
 
-    Ok(StatusCode::CREATED)
+    (StatusCode::CREATED, Json(serde_json::json!({})))
 }
 
 pub async fn login(
     State(context): State<Arc<Context>>,
     Json(request): Json<LoginData>,
-) -> Result<StatusCode, StatusCode> {
-    info!(
-        target: "Login",
-        event = "Request to login user",
-        username = request.username,
-    );
+) -> impl IntoResponse {
+    let span = info_span!("signup");
+    let _guard = span.enter();
+
+    info!(event = "Request to login user", username = request.username,);
 
     const LOGIN_QUERY: &str = "SELECT id, password FROM users WHERE users.username = $1;";
 
     let Some((_, password)): Option<(Uuid, String)> = sqlx::query_as(LOGIN_QUERY)
         .bind(&request.username)
         .fetch_optional(&context.database_connection)
+        .in_current_span()
         .await
         .unwrap()
     else {
-        error!(
-            target: "Login",
-            event = "Unknown username",
-            username = request.username,
-        );
+        error!(event = "Unknown user", username = request.username,);
 
-        return Err(StatusCode::BAD_REQUEST);
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "Unknown user"
+            })),
+        );
     };
 
     let parsed_hash = PasswordHash::new(&password).unwrap();
@@ -122,19 +131,17 @@ pub async fn login(
         .verify_password(request.password.as_bytes(), &parsed_hash)
         .is_err()
     {
-        error!(
-            target: "Login",
-            event = "Wrong password",
-        );
+        error!(event = "Wrong password",);
 
-        return Err(StatusCode::BAD_REQUEST);
+        return (
+            StatusCode::CREATED,
+            Json(serde_json::json!({
+                "error": "Wrong password"
+            })),
+        );
     }
 
-    info!(
-        target: "Login",
-        event = "Successfully login",
-        username = request.username,
-    );
+    info!(event = "Successfully login", username = request.username,);
 
-    Ok(StatusCode::OK)
+    (StatusCode::OK, Json(serde_json::json!({})))
 }
