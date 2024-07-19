@@ -8,7 +8,7 @@ use rand_chacha::ChaCha8Rng;
 use serde::Deserialize;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use tokio::sync::Mutex;
-use tracing::info;
+use tracing::{info, info_span, Instrument};
 use tracing_appender::rolling;
 use tracing_subscriber::{
     fmt::{self, writer::MakeWriterExt},
@@ -19,7 +19,7 @@ mod handlers;
 
 async fn create_database_connection(config: &AppConfig) -> Result<Pool<Postgres>> {
     info!(
-        target: "Database",
+        target: "database",
         event = "Connecting to PostgresSQL",
     );
 
@@ -35,8 +35,8 @@ async fn create_database_connection(config: &AppConfig) -> Result<Pool<Postgres>
         .await?;
 
     info!(
-        target: "Database",
-        event = "Successfully connected",
+        target: "database",
+        event = "Successfully connected to database",
     );
 
     Ok(conn)
@@ -51,6 +51,9 @@ fn get_router(context: Arc<Context>) -> Router {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let span = info_span!("auth_system");
+    let _guard = span.enter();
+
     let (file_log, _guard) = {
         let (file_log, guard) = tracing_appender::non_blocking(rolling::daily("./logs-as", "info"));
 
@@ -71,7 +74,9 @@ async fn main() -> Result<()> {
 
     let config = envy::from_env::<AppConfig>().unwrap();
 
-    let database_connection = create_database_connection(&config).await?;
+    let database_connection = create_database_connection(&config)
+        .in_current_span()
+        .await?;
 
     let context = Arc::new(Context {
         database_connection,
@@ -79,14 +84,17 @@ async fn main() -> Result<()> {
     });
 
     info!(
-        target: "Database",
+        target: "database",
         event = "Running migrations",
     );
 
-    sqlx::migrate!().run(&context.database_connection).await?;
+    sqlx::migrate!()
+        .run(&context.database_connection)
+        .in_current_span()
+        .await?;
 
     info!(
-        target: "Database",
+        target: "database",
         event = "Migrated",
     );
 
@@ -95,15 +103,19 @@ async fn main() -> Result<()> {
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
     info!(
-        target: "Server",
-        event = "Start listening",
-        addr = addr
+        target: "auth_system",
+        event = "Start listening", addr = addr
     );
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {},
         _ = axum::serve(listener, app).into_future() => {},
     }
+
+    info!(
+        target: "auth_system",
+        event = "Shutdown the server",
+    );
 
     Ok(())
 }
