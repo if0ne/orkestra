@@ -99,7 +99,7 @@ async fn main() -> Result<()> {
         event = "Start listening",
         addr = addr
     );
-    
+
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {},
         _ = axum::serve(listener, app).into_future() => {},

@@ -9,7 +9,7 @@ use dashmap::DashSet;
 use handlers::{create_session, filter_sessions, join_session};
 use models::SessionsInMemory;
 use serde::Deserialize;
-use tracing::info;
+use tracing::{debug, info, info_span};
 use tracing_appender::rolling;
 use tracing_subscriber::{
     fmt::{self, writer::MakeWriterExt},
@@ -28,12 +28,23 @@ fn get_router(context: Arc<Context>) -> Router {
 }
 
 fn clone_executable(context: Arc<Context>) -> Result<()> {
+    let span = info_span!("clone_server_repo");
+    let _guard = span.enter();
+
+    info!(event = "Start cloning server repository",);
+
+    debug!(event = "Clean up old version of server repository",);
+
     let _ = std::fs::remove_dir_all(&context.project_name);
+
+    debug!(event = "Clone server repository",);
 
     let _ = std::process::Command::new("git")
         .arg("clone")
         .arg(&context.repo_path)
         .output()?;
+
+    debug!(event = "Fetch lfs files",);
 
     let _ = std::process::Command::new("git")
         .arg("lfs")
@@ -41,17 +52,24 @@ fn clone_executable(context: Arc<Context>) -> Result<()> {
         .current_dir(&context.project_name)
         .output()?;
 
+    debug!(event = "Pull lfs files",);
+
     let _ = std::process::Command::new("git")
         .arg("lfs")
         .arg("pull")
         .current_dir(&context.project_name)
         .output()?;
 
+    info!(event = "Server repository was successfully downloaded",);
+
     Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let span = info_span!("server_manager");
+    let _guard = span.enter();
+
     let (file_log, _guard) = {
         let (file_log, guard) = tracing_appender::non_blocking(rolling::daily("./logs-sm", "info"));
 
@@ -71,7 +89,6 @@ async fn main() -> Result<()> {
     let _ = tracing::subscriber::set_global_default(subscriber);
 
     let config = envy::from_env::<AppConfig>()?;
-    let _ = tokio::fs::create_dir("logs-ue").await;
 
     let context = Arc::new(Context {
         session_container: Default::default(),
@@ -88,16 +105,19 @@ async fn main() -> Result<()> {
 
     clone_executable(Arc::clone(&context))?;
 
-    info!(
-        target: "Server",
-        event = "Start listening",
-        addr = addr
-    );
+    info!(event = "Start listening", addr = addr);
+
+    drop(_guard);
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {},
         _ = axum::serve(listener, app).into_future() => {},
     }
+
+    let span = info_span!("server_manager");
+    let _guard = span.enter();
+
+    info!(event = "Shutdown the server",);
 
     Ok(())
 }
