@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, info_span, warn, Instrument};
 use uuid::Uuid;
 
 use crate::{
@@ -56,17 +56,39 @@ pub async fn create_session(
     State(context): State<Arc<Context>>,
     Json(request): Json<CreateSessionRequest>,
 ) -> Result<Json<CreateSessionResponse>, StatusCode> {
+    let span = info_span!("create_session");
+    let _guard = span.enter();
+
+    info!(
+        target: "create_session",
+        event = "Handle request",
+        request = "Create Session",
+        config = ?request.config
+    );
+
     let free_port = loop {
         let free_port = TcpListener::bind("0.0.0.0:0").await.unwrap();
         let free_port = free_port.local_addr().unwrap().port();
 
-        if context.used_ports.insert(free_port) {
+        debug!(
+            target: "create_session",
+            event = "Check port for pending",
+            port = free_port
+        );
+        
+        if context.pending_ports.insert(free_port) {
             break free_port;
         }
+
+        debug!(
+            target: "create_session",
+            event = "Port is already pending",
+            port = free_port
+        );
     };
 
     info!(
-        target: "Create Session",
+        target: "create_session",
         event = "Found free port",
         port = free_port
     );
@@ -83,13 +105,19 @@ pub async fn create_session(
 
     let addr = session.addr.to_string();
 
-    info!(
-        target: "Create Session",
-        event = "Starting game server",
-    );
-
     let context_clone = context.clone();
     tokio::spawn(async move {
+        let span = info_span!("create_game_server");
+
+        let _guard = span.enter();
+
+        info!(
+            target: "create_game_server",
+            event = "Starting game server",
+            session_id = %session.id,
+            port = free_port,
+        );
+
         let result = tokio::process::Command::new("bash")
             .arg(format!("./{}/{}.sh", context_clone.project_name, context_clone.project_name))
             .arg("-log")
@@ -102,45 +130,78 @@ pub async fn create_session(
             .arg(format!("{}:{}", context_clone.host, context_clone.port))
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .output()
-            .await;
+            .spawn();
+
+        info!(
+            target: "create_game_server",
+            event = "Game server started",
+        );
+        
+        let result = match result {
+            Ok(result) => result,
+            Err(err) => {
+                warn!(
+                    target: "create_game_server",
+                    event = "Occurs error while starting game server",
+                    session_id = %session.id,
+                    port = free_port,
+                    error = %err
+                );
+                return;
+            }
+        };
+
+        context_clone.pending_ports.remove(&free_port);
+        let result = result.wait_with_output().in_current_span().await;
 
         match result {
             Ok(output) => {
-                // let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-                let status = output.status.to_string();
+                let status = output.status;
 
-                info!(
-                    target: "Clear Session",
-                    event = "Game server was finished and removed",
-                    // stdout = stdout,
-                    stderr = stderr,
-                    status = status
-                );
+                if status.success() {
+                    info!(
+                        target: "game_server",
+                        event = "Game server was finished and removed",
+                        session_id = ?session.id,
+                        port = free_port,
+                    );
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+
+                    warn!(
+                        target: "game_server",
+                        event = "Game server exit with error",
+                        session_id = %session.id,
+                        port = free_port,
+                        status = %status,
+                        stderr = %stderr
+                    );
+                }
             }
             Err(err) => {
                 warn!(
-                    target: "Create Session",
-                    event = "Game server end with error",
-                    error = ?err
+                    target: "game_server",
+                    event = "Occurs error while running the game server",
+                    session_id = %session.id,
+                    port = free_port,
+                    error = %err
                 );
             }
         }
 
         context_clone.session_container.sessions.remove(&session.id);
-        context_clone.used_ports.remove(&free_port);
-    });
+    }.in_current_span());
+
+    info!(
+        target: "create_session",
+        event = "Session was saved in memory",
+        session = ?session
+    );
 
     context
         .session_container
         .sessions
         .insert(session.id, session);
-
-    info!(
-        target: "Create Session",
-        event = "Game server was saved",
-    );
 
     Ok(Json(CreateSessionResponse { connection: addr }))
 }
