@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
         port: config.port,
         project_name: config.project_name.clone(),
         repo_path: config.repo_path.clone(),
-        used_ports: DashSet::with_capacity(16),
+        pending_ports: DashSet::with_capacity(16),
     });
 
     let app = get_router(Arc::clone(&context));
@@ -116,7 +116,7 @@ pub struct Context {
     pub session_container: SessionsInMemory,
     pub host: Ipv4Addr,
     pub port: u16,
-    pub used_ports: DashSet<u16>,
+    pub pending_ports: DashSet<u16>,
 
     pub project_name: String,
     pub repo_path: String,
