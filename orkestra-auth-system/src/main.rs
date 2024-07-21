@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
 
     info!(
         target: "auth_system",
-        event = "Start listening", 
+        event = "Start listening",
         addr = addr
     );
 

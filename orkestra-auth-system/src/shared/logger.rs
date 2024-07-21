@@ -5,7 +5,7 @@ use tracing_subscriber::{
 };
 
 pub struct Logger {
-    guard: WorkerGuard,
+    _guard: WorkerGuard,
 }
 
 impl Logger {
@@ -16,21 +16,31 @@ impl Logger {
 
             let file_log = fmt::Layer::new()
                 .with_ansi(false)
-                .with_writer(file_log.with_max_level(tracing::Level::INFO));
+                .with_writer(
+                    file_log
+                        .with_min_level(tracing::Level::TRACE)
+                        .with_max_level(tracing::Level::INFO),
+                )
+                .pretty();
 
             (file_log, guard)
         };
 
-        let console_log = fmt::Layer::new().with_ansi(true).with_writer(io::stdout);
+        let console_log = fmt::Layer::new()
+            .with_ansi(true)
+            .with_writer(
+                std::io::stdout
+                    .with_min_level(tracing::Level::ERROR)
+                    .with_max_level(tracing::Level::INFO),
+            )
+            .pretty();
 
         let subscriber = tracing_subscriber::registry()
             .with(file_log)
             .with(console_log);
 
-        let _ = tracing::subscriber::set_global_default(subscriber);
+        let _ = tracing::subscriber::set_global_default(subscriber).unwrap();
 
-        Self {
-            guard
-        }
+        Self { _guard: guard }
     }
 }
