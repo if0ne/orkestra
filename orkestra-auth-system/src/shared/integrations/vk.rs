@@ -50,14 +50,10 @@ impl VkService {
             return Err(VkAuthError::InternalError);
         };
 
-        let body = response.json::<VkResponse<()>>().await.unwrap(/* VK Doc: The server sends a response in JSON format with utf-8 encoding.*/);
+        let response = response.json::<VkResult<()>>().await.unwrap(/* VK Doc: The server sends a response in JSON format with utf-8 encoding.*/);
 
-        if body.status == "ok" {
+        let VkResult::Err(error) = response else {
             return Ok(());
-        }
-
-        let VkResult::Err(error) = body.result.unwrap() else {
-            unreachable!();
         };
 
         match error.errcode {
@@ -104,72 +100,66 @@ pub enum VkAuthError {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-struct VkResponse<T> {
-    status: String,
-
-    #[serde(flatten)]
-    result: Option<VkResult<T>>,
-}
-
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 struct VkError {
     errcode: i64,
     errmsg: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(untagged)]
+#[derive(Debug, PartialEq, Eq)]
 enum VkResult<T> {
     Ok(T),
     Err(VkError),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 struct VkProfileData {
     uid: u64,
     nick: String,
+    avatar: String,
     birthyear: String,
     sex: String,
     slug: String,
 }
 
+#[allow(unused)]
+impl<'de, T> Deserialize<'de> for VkResult<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum VkResultInner<T> {
+            Ok(T),
+            Err(VkError),
+        }
+
+        #[derive(Deserialize)]
+        struct ResultWrapper<TT> {
+            status: String,
+
+            #[serde(flatten)]
+            result: Option<VkResultInner<TT>>,
+        }
+
+        let wrapper = ResultWrapper::<T>::deserialize(deserializer)?;
+
+        unsafe {
+            match wrapper.result {
+                Some(VkResultInner::Ok(result)) => Ok(VkResult::Ok(result)),
+                Some(VkResultInner::Err(result)) => Ok(VkResult::Err(result)),
+                None => Ok(VkResult::Ok(std::mem::zeroed())),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::shared::integrations::vk::{VkError, VkResponse, VkResult};
-
-    #[test]
-    fn vk_response_ok_serialize() {
-        let json: VkResponse<()> = VkResponse {
-            status: "ok".to_string(),
-            result: None,
-        };
-
-        let data = serde_json::to_string(&json);
-        assert!(data.is_ok());
-        let data = data.unwrap();
-
-        assert_eq!(data, "{\"status\":\"ok\"}");
-    }
-
-    #[test]
-    fn vk_response_error_serialize() {
-        let json: VkResponse<()> = VkResponse {
-            status: "error".to_string(),
-            result: Some(VkResult::Err(VkError {
-                errcode: 0,
-                errmsg: "test".to_string(),
-            })),
-        };
-
-        let data = serde_json::to_string(&json);
-        assert!(data.is_ok());
-        let data = data.unwrap();
-
-        assert_eq!(
-            data,
-            "{\"status\":\"error\",\"errcode\":0,\"errmsg\":\"test\"}"
-        );
-    }
+    use crate::shared::integrations::vk::{VkError, VkProfileData, VkResult};
 
     #[test]
     fn vk_response_ok_parse() {
@@ -178,13 +168,43 @@ mod tests {
         })
         .to_string();
 
-        let data = serde_json::from_str::<VkResponse<()>>(&json);
+        let data = serde_json::from_str::<VkResult<()>>(&json);
         assert!(data.is_ok());
 
         let data = data.unwrap();
 
-        assert_eq!(data.status, "ok");
-        assert_eq!(data.result, None);
+        assert_eq!(data, VkResult::Ok(()));
+    }
+
+    #[test]
+    fn vk_response_structure_parse() {
+        let json = serde_json::json!({
+            "status": "ok",
+            "uid": 0,
+            "nick": "test",
+            "avatar": "http://test.com/test",
+            "birthyear": "01.01.2001",
+            "sex": "male",
+            "slug": "test"
+        })
+        .to_string();
+
+        let data = serde_json::from_str::<VkResult<VkProfileData>>(&json);
+        assert!(data.is_ok());
+
+        let data = data.unwrap();
+
+        assert_eq!(
+            data,
+            VkResult::Ok(VkProfileData {
+                uid: 0,
+                nick: "test".to_string(),
+                avatar: "http://test.com/test".to_string(),
+                birthyear: "01.01.2001".to_string(),
+                sex: "male".to_string(),
+                slug: "test".to_string()
+            })
+        );
     }
 
     #[test]
@@ -196,18 +216,17 @@ mod tests {
         })
         .to_string();
 
-        let data = serde_json::from_str::<VkResponse<()>>(&json);
+        let data = serde_json::from_str::<VkResult<()>>(&json);
         assert!(data.is_ok());
 
         let data = data.unwrap();
 
-        assert_eq!(data.status, "error");
         assert_eq!(
-            data.result,
-            Some(VkResult::Err(VkError {
+            data,
+            VkResult::Err(VkError {
                 errcode: 0,
                 errmsg: "gas_invalid_sign".to_string()
-            }))
+            })
         );
     }
 }
