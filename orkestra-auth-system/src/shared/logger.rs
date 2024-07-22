@@ -16,9 +16,7 @@ impl Logger {
 
             let file_log = fmt::Layer::new()
                 .with_ansi(false)
-                .with_writer(file_log
-                    .with_max_level(tracing::Level::TRACE)
-                )
+                .with_writer(file_log.with_max_level(tracing::Level::TRACE))
                 .pretty();
 
             (file_log, guard)
