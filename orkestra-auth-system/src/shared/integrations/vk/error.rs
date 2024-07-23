@@ -37,8 +37,17 @@ where
             match wrapper.result {
                 Some(VkResultInner::Ok(result)) => Ok(VkResult::Ok(result)),
                 Some(VkResultInner::Err(result)) => Ok(VkResult::Err(result)),
-                None => Ok(VkResult::Ok(std::mem::zeroed())),
+                None => Ok(VkResult::Ok(std::mem::zeroed())), // `std::mem::zeroed()``` used for unit types
             }
+        }
+    }
+}
+
+impl<T> From<VkResult<T>> for Result<T, VkError> {
+    fn from(value: VkResult<T>) -> Self {
+        match value {
+            VkResult::Ok(value) => Ok(value),
+            VkResult::Err(err) => Err(err),
         }
     }
 }
@@ -47,6 +56,15 @@ where
 pub struct VkError {
     pub errcode: i64,
     pub errmsg: String,
+}
+
+impl VkError {
+    pub fn internal_error() -> Self {
+        Self {
+            errcode: i64::MAX,
+            errmsg: "Internal error".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]

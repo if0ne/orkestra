@@ -10,7 +10,7 @@ pub mod router;
 mod tests {
     use super::{
         error::{VkError, VkResult},
-        models::VkProfileData,
+        models::VkUserProfileData,
     };
 
     #[test]
@@ -41,14 +41,14 @@ mod tests {
         })
         .to_string();
 
-        let data = serde_json::from_str::<VkResult<VkProfileData>>(&json);
+        let data = serde_json::from_str::<VkResult<VkUserProfileData>>(&json);
         assert!(data.is_ok());
 
         let data = data.unwrap();
 
         assert_eq!(
             data,
-            VkResult::Ok(VkProfileData {
+            VkResult::Ok(VkUserProfileData {
                 uid: 0,
                 nick: "test".to_string(),
                 avatar: "http://test.com/test".to_string(),

@@ -1,13 +1,17 @@
-use axum::{routing::post, Extension, Router};
+use axum::{routing::get, Extension, Router};
 use tower_http::trace::TraceLayer;
 
 use crate::shared::router::base_router;
 
-use super::{api::VkService, controller::auth};
+use super::{
+    api::VkService,
+    controller::{auth, get_user_profile},
+};
 
 pub fn vk_integration(vk_service: VkService) -> Router {
     let app = Router::new()
-        .route("/auth", post(auth))
+        .route("/auth", get(auth))
+        .route("/user/profile", get(get_user_profile))
         .layer(Extension(vk_service));
 
     let app = Router::new()

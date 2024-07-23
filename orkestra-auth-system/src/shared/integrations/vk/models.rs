@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, PartialEq, Eq)]
-pub struct VkProfileData {
+pub struct VkUserProfileData {
     pub uid: u64,
     pub nick: String,
     pub avatar: String,

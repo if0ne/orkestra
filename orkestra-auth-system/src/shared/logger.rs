@@ -35,7 +35,7 @@ impl Logger {
             .with(file_log)
             .with(console_log);
 
-        let _ = tracing::subscriber::set_global_default(subscriber).unwrap();
+        let _ = tracing::subscriber::set_global_default(subscriber);
 
         Self { _guard: guard }
     }
