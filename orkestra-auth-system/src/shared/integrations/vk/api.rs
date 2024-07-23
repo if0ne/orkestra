@@ -1,7 +1,10 @@
 use std::{net::Ipv4Addr, sync::Arc};
 use tracing::Instrument;
 
-use super::error::{VkAuthError, VkResult};
+use super::{
+    error::{VkAuthError, VkError, VkResult},
+    models::VkUserProfileData,
+};
 
 #[derive(Clone, Debug)]
 pub struct VkService {
@@ -75,6 +78,34 @@ impl VkService {
             50 => Err(VkAuthError::NoPayment),
             _ => unreachable!(),
         }
+    }
+
+    pub async fn get_user_profile(&self, uid: &str) -> Result<VkUserProfileData, VkError> {
+        let sign = self.calc_sign(serde_json::json!({
+            "appid": self.inner.game_id,
+            "uid": uid,
+        }));
+
+        let url = format!("{}/{}/user/profile", Self::BASE_URL, self.inner.game_id);
+
+        let response = self
+            .inner
+            .client
+            .get(url)
+            .query(&[("uid", uid), ("sign", &sign)])
+            .send()
+            .in_current_span()
+            .await;
+
+        let Ok(response) = response else {
+            return Err(VkError::internal_error());
+        };
+
+        let Ok(response) = response.json::<VkResult<VkUserProfileData>>().await else {
+            return Err(VkError::internal_error());
+        };
+
+        response.into()
     }
 
     fn calc_sign(&self, json: serde_json::Value) -> String {
