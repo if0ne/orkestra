@@ -1,9 +1,12 @@
 # Make chef image
 FROM rust:1.79-alpine3.20 AS chef
+
 WORKDIR /app
-RUN apk upgrade
-RUN apk add musl-dev
-RUN apk add postgresql
+
+RUN apk upgrade && \
+    apk add musl-dev  && \
+    apk add postgresql
+
 RUN cargo install --version 0.1.67 cargo-chef
 
 # Cache deps

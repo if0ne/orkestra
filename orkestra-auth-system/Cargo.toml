@@ -11,7 +11,7 @@ md5 = "0.7.0"
 pbkdf2 = { version = "0.12.2", features = ["simple"] }
 rand = { version = "0.8.5", features = ["getrandom"] }
 rand_chacha = "0.3.1"
-reqwest = { version = "0.12.5", features = ["json"] }
+reqwest = { version = "0.12.5", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
 sqlx = { version = "0.7", features = ["runtime-tokio", "postgres", "migrate", "uuid"] }
