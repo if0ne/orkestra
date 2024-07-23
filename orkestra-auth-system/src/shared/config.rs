@@ -9,6 +9,9 @@ pub struct AppConfig {
     pub database_password: String,
 
     pub port: u16,
+
+    pub vk_game_id: String,
+    pub vk_gas_secret: String,
 }
 
 impl AppConfig {

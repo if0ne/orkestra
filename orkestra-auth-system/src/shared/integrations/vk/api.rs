@@ -5,9 +5,14 @@ use super::error::{VkAuthError, VkResult};
 
 #[derive(Clone, Debug)]
 pub struct VkService {
+    inner: Arc<VkServiceInner>,
+}
+
+#[derive(Debug)]
+struct VkServiceInner {
     client: reqwest::Client,
-    game_id: Arc<str>,
-    secret: Arc<str>,
+    game_id: String,
+    secret: String,
 }
 
 impl VkService {
@@ -17,23 +22,26 @@ impl VkService {
         let client = reqwest::Client::new();
 
         Self {
-            client,
-            game_id: Arc::from(game_id),
-            secret: Arc::from(secret),
+            inner: Arc::new(VkServiceInner {
+                client,
+                game_id: game_id.to_string(),
+                secret: secret.to_string(),
+            }),
         }
     }
 
     pub async fn auth(&self, uid: &str, hash: &str, ip: Ipv4Addr) -> Result<(), VkAuthError> {
         let sign = self.calc_sign(serde_json::json!({
-            "appid": self.game_id,
+            "appid": self.inner.game_id,
             "uid": uid,
             "hash": hash,
             "ip": ip.to_string()
         }));
 
-        let url = format!("{}/{}/gas", Self::BASE_URL, self.game_id);
+        let url = format!("{}/{}/gas", Self::BASE_URL, self.inner.game_id);
 
         let response = self
+            .inner
             .client
             .get(url)
             .query(&[
@@ -50,7 +58,9 @@ impl VkService {
             return Err(VkAuthError::InternalError);
         };
 
-        let response = response.json::<VkResult<()>>().await.unwrap(/* VK Doc: The server sends a response in JSON format with utf-8 encoding.*/);
+        let Ok(response) = response.json::<VkResult<()>>().await else {
+            return Err(VkAuthError::InternalError);
+        };
 
         let VkResult::Err(error) = response else {
             return Ok(());
@@ -68,7 +78,7 @@ impl VkService {
     }
 
     fn calc_sign(&self, json: serde_json::Value) -> String {
-        let json = format!("{json}{}", self.secret);
+        let json = format!("{json}{}", self.inner.secret);
         let digest = md5::compute(json);
 
         format!("{:x}", digest)

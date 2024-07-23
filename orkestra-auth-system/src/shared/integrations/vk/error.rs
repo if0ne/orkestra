@@ -51,7 +51,7 @@ pub struct VkError {
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum VkAuthError {
-    #[error("Send request error")]
+    #[error("Internal request error")]
     InternalError,
 
     #[error("Invalid user or sign: {0}")]

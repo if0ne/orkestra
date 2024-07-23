@@ -1,7 +1,14 @@
-use std::future::IntoFuture;
+use std::{future::IntoFuture, net::SocketAddr};
 
 use anyhow::Result;
-use shared::{config::AppConfig, context::Context, database::Database, logger::Logger, router::v1};
+use shared::{
+    config::AppConfig,
+    context::Context,
+    database::Database,
+    integrations::vk::{api::VkService, router::vk_integration},
+    logger::Logger,
+    router::v1,
+};
 use tracing::{info, info_span, Instrument};
 
 mod plugins;
@@ -21,7 +28,13 @@ async fn main() -> Result<()> {
 
     let context = Context::new(database);
 
-    let app = v1(context);
+    let vk_service = VkService::new(&config.vk_game_id, &config.vk_gas_secret);
+    let vk_integration = vk_integration(vk_service);
+
+    let v1 = v1(context);
+
+    let app = v1.merge(vk_integration);
+
     let addr = format!("0.0.0.0:{}", config.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
 
@@ -33,7 +46,7 @@ async fn main() -> Result<()> {
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {},
-        _ = axum::serve(listener, app).into_future() => {},
+        _ = axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).into_future() => {},
     }
 
     info!(

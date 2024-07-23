@@ -5,7 +5,7 @@ use crate::plugins::*;
 
 use super::context::Context;
 
-fn base_router(router: Router) -> Router {
+pub fn base_router(router: Router) -> Router {
     Router::new().nest("/auth", router)
 }
 

@@ -1,12 +1,17 @@
+mod controller;
 mod error;
+mod models;
 
 pub mod api;
 pub mod dto;
-
+pub mod router;
 
 #[cfg(test)]
 mod tests {
-    use super::{error::{VkResult, VkError}, dto::VkProfileData};
+    use super::{
+        error::{VkError, VkResult},
+        models::VkProfileData,
+    };
 
     #[test]
     fn vk_response_ok_parse() {
