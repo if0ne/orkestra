@@ -22,13 +22,11 @@ impl Logger {
             (file_log, guard)
         };
 
-        let console_log = fmt::Layer::new()
-            .with_ansi(true)
-            .with_writer(
-                std::io::stdout
-                    .with_min_level(tracing::Level::ERROR)
-                    .with_max_level(tracing::Level::INFO),
-            );
+        let console_log = fmt::Layer::new().with_ansi(true).with_writer(
+            std::io::stdout
+                .with_min_level(tracing::Level::ERROR)
+                .with_max_level(tracing::Level::INFO),
+        );
 
         let subscriber = tracing_subscriber::registry()
             .with(file_log)
