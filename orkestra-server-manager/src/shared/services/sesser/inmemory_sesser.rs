@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Result;
 use dashmap::{DashMap, DashSet};
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::oneshot};
 use tracing::{debug, info_span, warn, Instrument};
 use uuid::Uuid;
 
@@ -73,103 +73,50 @@ impl Sesser for InMemorySesser {
             code: code.clone(),
         };
 
+        let (sender, receiver) = oneshot::channel();
+
+        debug!(
+            event = "Starting game server",
+            session_id = %session.id,
+            port = free_port,
+        );
+
         let this = self.clone();
+        let session_clone = session.clone();
         tokio::spawn(
             async move {
-                let span = info_span!("create_game_server");
+                this.start_server_process(session_clone, free_port, sender)
+                    .await;
+            }
+            .in_current_span(),
+        );
 
-                let _guard = span.enter();
-
-                debug!(
-                    event = "Starting game server",
-                    session_id = %session.id,
-                    port = free_port,
-                );
-
-                let result = tokio::process::Command::new("bash")
-                    .arg(format!(
-                        "./{}/{}.sh",
-                        this.inner.project_name, this.inner.project_name
-                    ))
-                    .arg("-log")
-                    .arg(format!("-Port={free_port}"))
-                    .arg("--serverid")
-                    .arg(session.id.to_string())
-                    .arg("--servercode")
-                    .arg(code)
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::piped())
-                    .spawn();
-
+        match receiver.await.unwrap() {
+            Ok(_) => {
                 debug!(
                     event = "Game server started",
                     session_id = %session.id,
                     port = free_port,
                 );
-
-                let result = match result {
-                    Ok(result) => result,
-                    Err(err) => {
-                        warn!(
-                            event = "Occurs error while starting game server",
-                            session_id = %session.id,
-                            port = free_port,
-                            error = %err
-                        );
-                        return;
-                    }
-                };
-
-                this.inner.pending_ports.remove(&free_port);
-                let result = result.wait_with_output().in_current_span().await;
-
-                match result {
-                    Ok(output) => {
-                        let status = output.status;
-
-                        if status.success() {
-                            debug!(
-                                target: "game_server",
-                                event = "Game server was finished and removed",
-                                session_id = ?session.id,
-                                port = free_port,
-                            );
-                        } else {
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-
-                            warn!(
-                                target: "game_server",
-                                event = "Game server exit with error",
-                                session_id = %session.id,
-                                port = free_port,
-                                status = %status,
-                                stderr = %stderr
-                            );
-                        }
-                    }
-                    Err(err) => {
-                        warn!(
-                            target: "game_server",
-                            event = "Occurs error while running the game server",
-                            session_id = %session.id,
-                            port = free_port,
-                            error = %err
-                        );
-                    }
-                }
-
-                this.inner.sessions.remove(&session.id);
             }
-            .in_current_span(),
-        );
+            Err(err) => {
+                warn!(
+                    event = "Occurs error while starting game server",
+                    session_id = %session.id,
+                    port = free_port,
+                    error = %err
+                );
+
+                return Err(err.into());
+            }
+        }
+
+        self.inner.sessions.insert(session.id, session.clone());
 
         debug!(
             event = "Session was saved in memory",
             session = ?session
         );
-
-        self.inner.sessions.insert(session.id, session.clone());
 
         Ok(session)
     }
@@ -191,7 +138,88 @@ impl Sesser for InMemorySesser {
             .sessions
             .iter()
             .find(|session| session.code.eq(&code))
-            .map(|session| vec![session.clone().into()])
+            .map(|session| vec![session.clone()])
             .unwrap_or_default()
+    }
+}
+
+impl InMemorySesser {
+    async fn start_server_process(
+        &self,
+        session: Session,
+        free_port: u16,
+        sender: oneshot::Sender<Result<(), std::io::Error>>,
+    ) {
+        let span = info_span!("create_game_server");
+        let _guard = span.enter();
+
+        let result = tokio::process::Command::new("bash")
+            .arg(format!(
+                "./{}/{}.sh",
+                self.inner.project_name, self.inner.project_name
+            ))
+            .arg("-log")
+            .arg(format!("-Port={free_port}"))
+            .arg("--serverid")
+            .arg(session.id.to_string())
+            .arg("--servercode")
+            .arg(session.code)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn();
+
+        let result = match result {
+            Ok(result) => {
+                let _ = sender.send(Ok(()));
+                result
+            }
+            Err(err) => {
+                let _ = sender.send(Err(err));
+                self.inner.pending_ports.remove(&free_port);
+
+                return;
+            }
+        };
+
+        self.inner.pending_ports.remove(&free_port);
+        let result = result.wait_with_output().in_current_span().await;
+
+        match result {
+            Ok(output) => {
+                let status = output.status;
+
+                if status.success() {
+                    debug!(
+                        target: "game_server",
+                        event = "Game server was finished and removed",
+                        session_id = ?session.id,
+                        port = free_port,
+                    );
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+
+                    warn!(
+                        target: "game_server",
+                        event = "Game server exit with error",
+                        session_id = %session.id,
+                        port = free_port,
+                        status = %status,
+                        stderr = %stderr
+                    );
+                }
+            }
+            Err(err) => {
+                warn!(
+                    target: "game_server",
+                    event = "Occurs error while running the game server",
+                    session_id = %session.id,
+                    port = free_port,
+                    error = %err
+                );
+            }
+        }
+
+        self.inner.sessions.remove(&session.id);
     }
 }

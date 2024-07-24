@@ -11,6 +11,7 @@ dashmap = "6.0.1"
 rand = { version = "0.8.5", features = ["getrandom"] }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
+thiserror = "1.0.63"
 tracing = "0.1.40"
 tracing-appender = "0.2.3"
 tracing-error = "0.2.0"

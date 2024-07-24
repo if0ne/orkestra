@@ -1,10 +1,13 @@
 use axum::{response::IntoResponse, Extension, Json};
 use tracing::{info, info_span};
 
-use crate::shared::{
-    context::Context,
-    services::sesser::Sesser,
-    utils::{bad_request_json, ok_json},
+use crate::{
+    plugins::join_session::use_case,
+    shared::{
+        context::Context,
+        services::sesser::Sesser,
+        utils::{bad_request_json, ok_json},
+    },
 };
 
 use super::dto::JoinSessionRequest;
@@ -23,13 +26,14 @@ pub async fn join_session<S: Sesser>(
         "session id" = %request.server_id
     );
 
-    let Some(server) = context.sesser().get_by_id(request.server_id) else {
-        return bad_request_json(serde_json::json!({
-            "error": "Session not found"
-        }));
-    };
+    let session = use_case::join_session(context.sesser(), request.server_id).await;
 
-    ok_json(serde_json::json!({
-        "connection": server.addr.to_string()
-    }))
+    match session {
+        Ok(addr) => ok_json(serde_json::json!({
+            "connection": addr.to_string()
+        })),
+        Err(err) => bad_request_json(serde_json::json!({
+            "error": err.to_string()
+        })),
+    }
 }

@@ -3,6 +3,7 @@ use axum::{extract::Extension, response::IntoResponse, Json};
 use tracing::{info, info_span, Instrument};
 
 use crate::{
+    plugins::create_session::use_case,
     shared::{
         services::sesser::Sesser,
         utils::{bad_request_json, ok_json},
@@ -25,9 +26,7 @@ pub async fn create_session<S: Sesser>(
         config = ?request.config
     );
 
-    let session = context
-        .sesser()
-        .create_session(request.config)
+    let session = use_case::create_session(context.sesser(), request.config)
         .in_current_span()
         .await;
 
