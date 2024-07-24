@@ -1,21 +1,21 @@
 use tracing::{debug, info, info_span};
 
-use crate::shared::context::Context;
+use crate::shared::{context::Context, services::sesser::Sesser};
 
 use super::ServerCloner;
 
 #[derive(Clone)]
-pub struct SimplerServerCloner {
-    context: Context,
+pub struct SimplerServerCloner<S: Sesser> {
+    context: Context<S>,
 }
 
-impl SimplerServerCloner {
-    pub fn new(context: Context) -> Self {
+impl<S: Sesser> SimplerServerCloner<S> {
+    pub fn new(context: Context<S>) -> Self {
         Self { context }
     }
 }
 
-impl ServerCloner for SimplerServerCloner {
+impl<S: Sesser> ServerCloner for SimplerServerCloner<S> {
     fn clone_server_repo(&self) -> anyhow::Result<()> {
         let span = info_span!("clone_server_repo");
         let _guard = span.enter();
