@@ -9,10 +9,10 @@ pub fn base_router(router: Router) -> Router {
     Router::new().nest("/api", router)
 }
 
-pub fn v1<S: Sesser + 'static>(context: Context<S>) -> Router {
-    let create_session = create_session::router::service();
-    let join_session = join_session::router::service();
-    let filter_sessions = filter_sessions::router::service();
+pub fn v1<S: Sesser>(context: Context<S>) -> Router {
+    let create_session = create_session::router::service::<S>();
+    let join_session = join_session::router::service::<S>();
+    let filter_sessions = filter_sessions::router::service::<S>();
 
     let merged = Router::new()
         .merge(create_session)

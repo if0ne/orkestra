@@ -6,13 +6,13 @@ use tracing::{info, info_span};
 
 use crate::{
     plugins::filter_sessions::{dto::SessionPresent, use_case},
-    shared::{context::Context, utils::ok_json},
+    shared::{context::Context, services::sesser::Sesser, utils::ok_json},
 };
 
 use super::dto::FilterParams;
 
-pub async fn filter_sessions(
-    Extension(context): Extension<Context>,
+pub async fn filter_sessions<S: Sesser>(
+    Extension(context): Extension<Context<S>>,
     Query(request): Query<FilterParams>,
 ) -> impl IntoResponse {
     let span = info_span!("filter_sessions");

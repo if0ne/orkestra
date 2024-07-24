@@ -9,8 +9,8 @@ use crate::shared::{
 
 use super::dto::JoinSessionRequest;
 
-pub async fn join_session(
-    Extension(context): Extension<Context>,
+pub async fn join_session<S: Sesser>(
+    Extension(context): Extension<Context<S>>,
     Json(request): Json<JoinSessionRequest>,
 ) -> impl IntoResponse {
     let span = info_span!("join_session");

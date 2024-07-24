@@ -2,13 +2,10 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use super::{
-    config::AppConfig,
-    services::sesser::{inmemory_sesser::InMemorySesser, Sesser},
-};
+use super::{config::AppConfig, services::sesser::Sesser};
 
 #[derive(Clone)]
-pub struct Context<S: Sesser = InMemorySesser> {
+pub struct Context<S: Sesser> {
     inner: Arc<ContextInner<S>>,
 }
 

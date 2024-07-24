@@ -12,8 +12,8 @@ use crate::{
 
 use super::dto::CreateSessionRequest;
 
-pub async fn create_session(
-    Extension(context): Extension<Context>,
+pub async fn create_session<S: Sesser>(
+    Extension(context): Extension<Context<S>>,
     Json(request): Json<CreateSessionRequest>,
 ) -> impl IntoResponse {
     let span = info_span!("create_session");

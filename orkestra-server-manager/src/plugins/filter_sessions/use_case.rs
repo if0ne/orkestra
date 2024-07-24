@@ -5,7 +5,7 @@ use crate::{
     shared::{context::Context, services::sesser::Sesser},
 };
 
-pub fn filter_sessions(context: Context, code: Option<String>) -> Vec<Session> {
+pub fn filter_sessions<S: Sesser>(context: Context<S>, code: Option<String>) -> Vec<Session> {
     if let Some(code) = code {
         info!(
             target: "filter_sessions",
