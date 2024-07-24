@@ -99,7 +99,7 @@ impl Sesser for InMemorySesser {
                     .arg(code)
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
-                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
                     .spawn();
 
                 debug!(
