@@ -28,8 +28,7 @@ impl Logger {
                 std::io::stdout
                     .with_min_level(tracing::Level::ERROR)
                     .with_max_level(tracing::Level::INFO),
-            )
-            .pretty();
+            );
 
         let subscriber = tracing_subscriber::registry()
             .with(file_log)
