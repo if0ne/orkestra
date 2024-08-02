@@ -23,7 +23,8 @@ pub async fn join_session<S: Sesser>(
         target: "join_session",
         event = "Handle request",
         request = "Join session",
-        "session id" = %request.server_id
+        "session id" = %request.server_id,
+        "player id" = ?request.player_id,
     );
 
     let session =

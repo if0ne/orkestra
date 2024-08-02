@@ -13,11 +13,13 @@ pub fn v1<S: Sesser>(context: Context<S>) -> Router {
     let create_session = create_session::router::service::<S>();
     let join_session = join_session::router::service::<S>();
     let filter_sessions = filter_sessions::router::service::<S>();
+    let remove_player_from_session = remove_player_from_session::router::service::<S>();
 
     let merged = Router::new()
         .merge(create_session)
         .merge(join_session)
         .merge(filter_sessions)
+        .merge(remove_player_from_session)
         .layer(Extension(context));
 
     let v1 = Router::new()

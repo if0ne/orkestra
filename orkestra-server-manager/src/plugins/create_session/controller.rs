@@ -23,7 +23,8 @@ pub async fn create_session<S: Sesser>(
     info!(
         event = "Handle request",
         request = "Create Session",
-        config = ?request.config
+        config = ?request.config,
+        "creator id" = ?request.creator_id,
     );
 
     let session = use_case::create_session(context.sesser(), request.creator_id, request.config)
