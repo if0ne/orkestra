@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     net::{Ipv4Addr, SocketAddrV4},
     process::Stdio,
     sync::{atomic::AtomicU32, Arc},
@@ -11,11 +12,11 @@ use tracing::{debug, info_span, warn, Instrument};
 use uuid::Uuid;
 
 use crate::{
-    models::session::{Session, SessionConfig},
+    models::session::{Id, Session, SessionConfig, UpdateSession},
     shared::config::AppConfig,
 };
 
-use super::Sesser;
+use super::{error::UpdateSessionError, Sesser};
 
 static GLOBAL_CODE: AtomicU32 = AtomicU32::new(0);
 
@@ -47,7 +48,7 @@ struct InMemorySesserInner {
 }
 
 impl Sesser for InMemorySesser {
-    async fn create_session(&self, config: SessionConfig) -> Result<Session> {
+    async fn create_session(&self, creator_id: Id, config: SessionConfig) -> Result<Session> {
         let free_port = loop {
             let free_port = TcpListener::bind("0.0.0.0:0").await.unwrap();
             let free_port = free_port.local_addr().unwrap().port();
@@ -71,6 +72,8 @@ impl Sesser for InMemorySesser {
             addr: SocketAddrV4::new(self.inner.host, free_port),
             title: config.title,
             code: code.clone(),
+            max_players: config.max_players,
+            players: HashSet::from([creator_id]),
         };
 
         let (sender, receiver) = oneshot::channel();
@@ -140,6 +143,35 @@ impl Sesser for InMemorySesser {
             .find(|session| session.code.eq(&code))
             .map(|session| vec![session.clone()])
             .unwrap_or_default()
+    }
+
+    fn update_session(
+        &self,
+        id: Uuid,
+        update: UpdateSession,
+    ) -> Result<Session, UpdateSessionError> {
+        let mut session = self
+            .inner
+            .sessions
+            .get_mut(&id)
+            .ok_or(UpdateSessionError::SessionNotFound(id))?;
+
+        match update {
+            UpdateSession::AddPlayer(id) => {
+                if session.players.len() < session.max_players as _ {
+                    session.players.insert(id);
+
+                    Ok(session.clone())
+                } else {
+                    Err(UpdateSessionError::SessionIsFull)
+                }
+            }
+            UpdateSession::RemovePlayer(id) => {
+                session.players.remove(&id);
+
+                Ok(session.clone())
+            }
+        }
     }
 }
 

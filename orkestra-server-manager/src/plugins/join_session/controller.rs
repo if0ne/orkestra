@@ -26,7 +26,8 @@ pub async fn join_session<S: Sesser>(
         "session id" = %request.server_id
     );
 
-    let session = use_case::join_session(context.sesser(), request.server_id).await;
+    let session =
+        use_case::join_session(context.sesser(), request.player_id, request.server_id).await;
 
     match session {
         Ok(addr) => ok_json(serde_json::json!({

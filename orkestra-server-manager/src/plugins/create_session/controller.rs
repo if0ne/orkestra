@@ -26,7 +26,7 @@ pub async fn create_session<S: Sesser>(
         config = ?request.config
     );
 
-    let session = use_case::create_session(context.sesser(), request.config)
+    let session = use_case::create_session(context.sesser(), request.creator_id, request.config)
         .in_current_span()
         .await;
 
