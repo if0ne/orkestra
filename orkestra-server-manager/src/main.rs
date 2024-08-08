@@ -79,12 +79,15 @@ async fn main() -> Result<()> {
     let config = envy::from_env::<AppConfig>()?;
     let _ = tokio::fs::create_dir("logs-ue").await;
 
+    let repo_name = config.repo_path.split('/').last().map(|s| s.to_string()).unwrap();
+
     let context = Arc::new(Context {
         session_container: Default::default(),
         host: config.host.parse()?,
         port: config.port,
         project_name: config.project_name.clone(),
         repo_path: config.repo_path.clone(),
+        repo_name: repo_name,
         used_ports: DashSet::with_capacity(16),
     });
 
@@ -121,5 +124,6 @@ pub struct Context {
     pub used_ports: DashSet<u16>,
 
     pub project_name: String,
+    pub repo_name: String,
     pub repo_path: String,
 }
