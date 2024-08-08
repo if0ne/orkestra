@@ -28,7 +28,7 @@ fn get_router(context: Arc<Context>) -> Router {
 }
 
 fn clone_executable(context: Arc<Context>) -> Result<()> {
-    let _ = std::fs::remove_dir_all(&context.project_name);
+    let _ = std::fs::remove_dir_all(&context.repo_name);
 
     let _ = std::process::Command::new("git")
         .arg("clone")
@@ -38,19 +38,19 @@ fn clone_executable(context: Arc<Context>) -> Result<()> {
     let _ = std::process::Command::new("git")
         .arg("lfs")
         .arg("install")
-        .current_dir(&context.project_name)
+        .current_dir(&context.repo_name)
         .output()?;
 
     let _ = std::process::Command::new("git")
         .arg("lfs")
         .arg("fetch")
-        .current_dir(&context.project_name)
+        .current_dir(&context.repo_name)
         .output()?;
 
     let _ = std::process::Command::new("git")
         .arg("lfs")
         .arg("pull")
-        .current_dir(&context.project_name)
+        .current_dir(&context.repo_name)
         .output()?;
 
     Ok(())
