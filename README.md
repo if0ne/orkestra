@@ -1,4 +1,11 @@
-# How to use
+# Orkestra
+
+Orkestra is a Rust backend for multiplayer games. It handles player accounts and starts a dedicated game server for each new session.
+
+- **Authentication service** handles sign-up and login and stores account data in PostgreSQL.
+- **Server manager** lets players create, find, and join sessions. It tracks session membership in memory and runs each game server on its own port.
+
+## How to use
 
 1. Download Docker
 
